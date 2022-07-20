@@ -1,202 +1,6 @@
--- INSPECTING THE DATA (Exploration)
-SELECT TOP 5 *
-FROM DT_202106
-ORDER BY ended_at DESC
-
-SELECT COUNT(ride_id), member_casual
-FROM DT_202106
-GROUP BY member_casual
--- 357k casual, 335k member
-
-SELECT COUNT(start_station_id), start_station_id, member_casual
-FROM DT_202106
-GROUP BY start_station_id, member_casual
-ORDER BY 3, 1 DESC, 2
--- most casual rides by far started at station id 13022 (11514 trips), followed by LF005 (5539), 13300 (5415), 13008 (5070)
--- the most member rides started at TA1307000039 (3318). LF005 (3194)
-
-SELECT COUNT(end_station_id), end_station_id, member_casual
-FROM DT_202106
-GROUP BY end_station_id, member_casual
-ORDER BY 3, 1 DESC, 2
--- most casual riders ended trips at station 13022 (11739), followed by LF005 (6888), 13008 (5144), 13042 (5128)
--- member rides ended at station LF005 (3643), TA1307000039 (3260), TA1308000050 (3106)
-
-SELECT COUNT(rideable_type), start_station_id, rideable_type --, member_casual
-FROM DT_202106
-GROUP BY rideable_type, start_station_id
-ORDER BY 1 DESC, 3, 2
--- 80k electric bikes are from NULL station id, investigate
--- classic bikes 8669 at station 13022, followed by 6135 at LF005
--- docked bikes 3005 at 13022,  1748 at 13300, 1459 at 13008
--- electric bikes 2309 at 13022, 1577 at LF005, 1533 at TA1308000050
-
-SELECT started_at, ended_at, ride_length
-FROM DT_202106
-ORDER BY ended_at
--------------------------------------------------------------           ------------------------------------------------------------
-
--- CLEANING THE DATA
--- delelting incorrectly entered and null start/stop time values
-SELECT ended_at 
-FROM DT_202106
-WHERE ended_at >= '2021-07-02'
-
-DELETE
-FROM DT_202106
-WHERE ended_at >= '2021-07-02'
-
-DELETE
-FROM DT_202106
-WHERE ended_at >= '2021-07-01' AND started_at < '2021-06-30'
-
-DELETE
---SELECT *
-FROM DT_202106
-WHERE started_at > ended_at
-
-DELETE
-FROM DT_202106
-WHERE started_at IS NULL
-
-DELETE
---SELECT *
-FROM DT_202106
-WHERE DATEDIFF(day, started_at, ended_at) > 1  -- deletes all trip duration over a day
-
-ALTER TABLE DT_202106
-DROP COLUMN F16, F17
-
--- Deleting trips less than 3mins or above 24hours
-DELETE
-DT_202106
-WHERE tripduration < 180 OR tripduration > 86400
----------------------------------------------------
-
--- Checking for Duplicates
-SELECT ride_id 
-FROM DT_202106
-GROUP BY ride_id
-HAVING COUNT(ride_id) > 1
-
--------------------------------------------------------------           ------------------------------------------------------------
-
---FURTHER EXPLORATION
--- Average trip duration per start station
-SELECT AVG(tripduration) AVG_tripduration, start_station_id--, end_station_id
-FROM DT_202106
-GROUP BY start_station_id--, end_station_id
-ORDER BY 1 DESC
-
-SELECT start_station_id, end_station_id, tripduration
-FROM DT_202106
-WHERE start_station_id = '564' --AND  END_station_id = '564'
-
--- Average trip per Usertype
-SELECT AVG(tripduration) AVG_tripduration, member_casual
-FROM DT_202106
-GROUP BY member_casual
---1852s casual,879s	member
-
-SELECT MAX(tripduration) AVG_tripduration, member_casual
-FROM DT_202106
-GROUP BY member_casual
-
-SELECT tripduration, member_casual, started_at, ended_at 
-FROM DT_202106
-ORDER BY 1 DESC
-
-
--- Day of week usage
-SELECT COUNT(day_of_week) 'Day', day_of_week, member_casual
-FROM DT_202106
-GROUP BY day_of_week, member_casual
-ORDER BY 2
-
-SELECT TOP 5 * FROM DT_202106
-
--- Type of bike by usertype
-SELECT COUNT(rideable_type), rideable_type, member_casual
-FROM DT_202106
-GROUP BY rideable_type, member_casual
-ORDER BY 1
-
-
-
-SELECT COUNT(time_of_day) 'Num_trips', time_of_day, member_casual
-FROM DT_202106
-GROUP BY time_of_day, member_casual
-ORDER BY 1 DESC
---For both member and casual the number of trips peaks in the evening around 4pm-7pm
--- For casuals from 12noon rises till 8pm, peaks at 5
-
--------------------------------------------------------------           ------------------------------------------------------------
-
--- ANALYSIS/DATA TRANSFORMATION
---SELECT TOP 5 CAST(started_at AS datetime), CAST(ended_at AS datetime), ride_length, 
---CAST(ended_at AS datetime) - CAST(started_at AS datetime)
---FROM DT_202106
---ORDER BY 1 DESC
-
--- To get the trip duration, in seconds
-SELECT DATEDIFF(SECOND, started_at, ended_at), started_at, ended_at
-FROM DT_202106
-
-----------------------------------------------------------------------
--- Trying to set the trip duration into the existing ridelength column (wasn't succesful due to datatype)
---SELECT TOP 5 ride_length FROM DT_202106
-
---UPDATE DT_202106
-----SET ride_length = -1     --deletes the data in ride_length column. Or
---SET ride_length = NULL  --sets ride_length to null
-
---UPDATE DT_202106
---SET ride_length =
---DATEDIFF(SECOND, started_at, ended_at)
---FROM DT_202106
----- updates the tripduration in seconds to ride_length colum
-
---ALTER TABLE DT_202106
---ALTER COLUMN ride_length int   -- to change the datatype from to int
-
---UPDATE DT_202106
---SET ride_length = CONVERT(int, ride_length)
-
---SELECT DATA_TYPE 
---FROM INFORMATION_SCHEMA.COLUMNS
---WHERE 
---     TABLE_NAME = 'DT_202106' AND 
---     COLUMN_NAME = 'ride_length'
-
---SELECT CONVERT(int, ride_length) AS ride_lgth INTO DT_202106
---FROM DT_202106
-----------------------------------------------------------------------
--- Creating a new tripduration column
-SELECT TOP 10 * FROM DT_202106
-order by start_station_id desc,end_station_id desc
-
-ALTER TABLE DT_202106
-DROP COLUMN ride_length
-
-ALTER TABLE DT_202106
-ADD tripduration int
-
-UPDATE DT_202106
-SET tripduration = DATEDIFF(SECOND, started_at, ended_at)FROM DT_202106
--------------------------------------------------------------------------------
-
-SELECT TOP 5 DATEPART(HOUR, started_at), started_at
-FROM DT_202106
-
-ALTER TABLE DT_202106
-ADD time_of_day int
-
-UPDATE DT_202106
-SET time_of_day = DATEPART(HOUR, started_at) FROM DT_202106
 -------------------------------------------------------------           ------------------------------------------------------------
 -------------------------------------------------------------           ------------------------------------------------------------
--------------------------------------------------------------           ------------------------------------------------------------
-
+-- Previous step: Exploration and transformation of each month data using Excel
 
 --MERGING ALL OF 2021 DATA
 ----------------------------
@@ -220,55 +24,55 @@ CREATE TABLE DT_2021(
 SELECT COUNT(*) FROM DT_2021
 
 INSERT INTO DT_2021
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202101
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202102
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202103
---UNION ALL
-	--SELECT 
-	--	ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
-	--FROM DT_202104
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202105
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202106
---UNION ALL
-	--SELECT 
-	--	ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
-	--FROM DT_202107
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202108
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202109
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202110
---UNION ALL
---	SELECT 
---		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
---	FROM DT_202111
---UNION ALL
-	--SELECT 
-	--	ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
-	--FROM DT_202112
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202101
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202102
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202103
+UNION ALL
+	SELECT 
+	ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202104
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202105
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202106
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202107
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202108
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202109
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202110
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202111
+UNION ALL
+	SELECT 
+		ride_id, rideable_type, started_at, ended_at, start_station_id, end_station_id, member_casual, day_of_week
+	FROM DT_202112
 
--- I eventually enter the months into the table one after the other due to a datatype anomaly 
+ 
 
 -------------------------------------------------------------           ------------------------------------------------------------
 
@@ -483,4 +287,4 @@ ORDER BY 3
 -------------------------------------------------------------           ------------------------------------------------------------
 
 
-select top 2 * from DT_2021
+select top 10 * from DT_2021
